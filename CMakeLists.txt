@@ -8,4 +8,4 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 
 add_library(sfmt STATIC ${CMAKE_SOURCE_DIR}/SFMT/SFMT.c)
-add_library(utils STATIC ${SOURCE_DIR}/*.cpp)
+add_library(utils STATIC ${SOURCE_DIR}/utils.cpp)
