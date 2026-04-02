@@ -1,3 +1,6 @@
 [submodule "SFMT"]
 	path = SFMT
 	url = git@github.com:MersenneTwister-Lab/SFMT.git
+[submodule "parallel-radix-sort"]
+	path = parallel-radix-sort
+	url = git@github.com:iwiwi/parallel-radix-sort.git
