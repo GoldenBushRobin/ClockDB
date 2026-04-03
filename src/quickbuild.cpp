@@ -2,7 +2,7 @@
 // I/O
 #include <iostream>
 #include <filesystem>
-#include <format>
+// #include <format>
 #include <fstream>
 
 // data types
@@ -38,10 +38,8 @@ int main(int argc, char* argv[]) {
     uint32_t target = skipped * 2;
 
     string binDir = std::format("bin/{:d}/", skipped);
-    string stateName = binDir + "state.bin";
     string countName = binDir + "counts.bin";
     string indexName = binDir + "indices.bin";
-    string boundsName = binDir + "bounds.bin";
     string clockNames[SEG_COUNT];
     string seedNames[SEG_COUNT];
     for(uint32_t seg = 0; seg < SEG_COUNT; ++seg) {
