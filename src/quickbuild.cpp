@@ -59,6 +59,7 @@ int main(int argc, char* argv[]) {
         LOG_INFO("Error creating directory: %s", e.what());
     }
     long PAGESIZE = sysconf(_SC_PAGESIZE);
+    long PAGEENTS = PAGESIZE / sizeof(uint32_t);
     
     LOG_INFO("STAGE ONE: Clock calculation and temporary storage");
     
@@ -75,7 +76,7 @@ int main(int argc, char* argv[]) {
     size_t segsizes[SEG_COUNT] = {0}; // by index
     size_t filesizes[SEG_COUNT] = {0};
     
-    size_t BLOCKCOUNT = 256;
+    size_t BLOCKCOUNT = 32;
     size_t BLOCKSIZE = (1ULL << 32) / BLOCKCOUNT;
     {
         pair_sort.Init((BLOCKSIZE + extra) * 2);
@@ -83,7 +84,7 @@ int main(int argc, char* argv[]) {
         vector<uint32_t> seeds(BLOCKSIZE + extra);
         
         for(size_t block = 0; block < BLOCKCOUNT; ++block) {
-            buildClocks(pair_sort, block, target, clocks, seeds);
+            buildClocks(pair_sort, block, target, clocks, seeds, BLOCKSIZE);
             memset(clocks.data() + BLOCKSIZE, -1, extra);
             memset(seeds.data() + BLOCKSIZE, -1, extra);
             
@@ -106,7 +107,8 @@ int main(int argc, char* argv[]) {
 
             for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
                 segsizes[seg] += sizes[seg];
-                offsets[seg] = PAGESIZE - (sizes[seg] % PAGESIZE);
+                
+                offsets[seg] = PAGEENTS - (sizes[seg] % PAGEENTS);
             }
 
             size_t pos = BLOCKSIZE;
@@ -122,9 +124,18 @@ int main(int argc, char* argv[]) {
             for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
                 int clockfd = open(clockNames[seg].c_str(), O_WRONLY);
                 int seedfd = open(seedNames[seg].c_str(), O_WRONLY);
-                
                 off_t offset = lseek(clockfd, 0, SEEK_END);
+                
+                size_t cutoff = (seg + 1) * SEG_SIZE - 1;
                 size_t writesize = (sizes[seg] + offsets[seg]) * sizeof(uint32_t);
+                for(size_t index = pos + sizes[seg] + offsets[seg] - 1; sorted.first[index] == cutoff;--index) {
+                    if(sorted.second[index] == 0xFFFFFFFF) {
+                        sorted.first[index] = 0xFFFFFFFF;
+                        sorted.second[index] = 0;
+
+                    }
+                }
+
                 pwrite(clockfd, sorted.first + pos, writesize, offset);
                 pwrite(seedfd, sorted.second + pos, writesize, offset);
                 pos += sizes[seg] + offsets[seg];
@@ -145,6 +156,7 @@ int main(int argc, char* argv[]) {
         vector<uint32_t> seeds(sortsize);
 
         for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
+            LOG_INFO("Coping clocks from file %s", clockNames[seg].c_str());
             int clockfd = open(clockNames[seg].c_str(), O_RDONLY);
             void* clockdata = mmap(NULL, filesizes[seg], PROT_READ, MAP_PRIVATE, clockfd, 0);
             if(clockdata == MAP_FAILED) {
@@ -155,6 +167,7 @@ int main(int argc, char* argv[]) {
             munmap(clockdata, filesizes[seg]);
             close(clockfd);
 
+            LOG_INFO("Coping seeds from file %s", clockNames[seg].c_str());
             int seedfd = open(seedNames[seg].c_str(), O_RDONLY);
             void* seeddata = mmap(NULL, filesizes[seg], PROT_READ, MAP_PRIVATE, seedfd, 0);
             if(seeddata == MAP_FAILED) {
@@ -165,12 +178,15 @@ int main(int argc, char* argv[]) {
             munmap(seeddata, filesizes[seg]);
             close(seedfd);
 
+            LOG_INFO("Sorting clocks and seeds");
             auto sorted = pair_sort.Sort(clocks.data(), seeds.data(), filesizes[seg] / sizeof(uint32_t));
 
+            LOG_INFO("Writing sorted clocks to file");
             clockfd = open(clockNames[seg].c_str(), O_WRONLY | O_TRUNC);
             pwrite(clockfd, sorted.first, segsizes[seg] * sizeof(uint32_t), 0);
             close(clockfd);
             
+            LOG_INFO("Writing sorted seeds to file");
             seedfd = open(seedNames[seg].c_str(), O_WRONLY | O_TRUNC);
             pwrite(seedfd, sorted.second, segsizes[seg] * sizeof(uint32_t), 0);
             close(seedfd);
@@ -179,13 +195,12 @@ int main(int argc, char* argv[]) {
     LOG_INFO("STAGE TWO COMPLETE\n");
 
     LOG_INFO("STAGE THREE: Count clocks in files");
-        
-
+    
     {
         vector<uint32_t> counts(MAX_CLOCK + 1, 0);
         for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
             LOG_INFO("Counting clocks for block %ld",seg);
-            countClocks(clockNames[seg], counts);    
+            countClocks(clockNames[seg], counts, segsizes[seg]);    
             LOG_INFO("Segment %ld clocks added.",seg);
         }
         writeVector(counts, MAX_CLOCK, countName);
