@@ -70,7 +70,7 @@ void countClocks(string clockName, vector<uint32_t> &counts, size_t size) {
     for(uint32_t seed = 0; seed < size; ++seed) {
         ++counts[clockdata[seed]];
     }
-    munmap(clockdata, fsize);
+    munmap(clockdata, size * sizeof(uint32_t));
     close(fd);
 }
 

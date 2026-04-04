@@ -153,8 +153,8 @@ int main(int argc, char* argv[]) {
     sortsize = (sortsize / PAGESIZE + 1) * PAGESIZE;
     
     pair_sort.Init(sortsize / sizeof(uint32_t));
-    // clocks = (uint32_t *) std::aligned_alloc(PAGESIZE, sortsize);
-    // seeds = (uint32_t *) std::aligned_alloc(PAGESIZE, sortsize);
+    clocks = (uint32_t *) std::aligned_alloc(PAGESIZE, sortsize);
+    seeds = (uint32_t *) std::aligned_alloc(PAGESIZE, sortsize);
 
     {
         for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
@@ -165,7 +165,9 @@ int main(int argc, char* argv[]) {
                 perror("Map Failed");
                 return 1;
             }
-            // memcpy(clocks, clockdata, filesizes[seg]);
+            memcpy(clocks, clockdata, filesizes[seg]);
+            munmap(clockdata, filesizes[seg]);
+            close(clockfd);
             
             LOG_INFO("Coping seeds from file %s", clockFiles[seg].c_str());
             int seedfd = open(seedFiles[seg].c_str(), O_RDONLY);
@@ -174,16 +176,12 @@ int main(int argc, char* argv[]) {
                 perror("Map Failed");
                 return 1;
             }
-            // memcpy(seeds, seeddata, filesizes[seg]);
-            
-            LOG_INFO("Sorting clocks and seeds");
-            auto sorted = pair_sort.Sort(clockdata, seeddata, filesizes[seg] / sizeof(uint32_t));
-
-            munmap(clockdata, filesizes[seg]);
-            close(clockfd);
+            memcpy(seeds, seeddata, filesizes[seg]);
             munmap(seeddata, filesizes[seg]);
             close(seedfd);
 
+            LOG_INFO("Sorting clocks and seeds");
+            auto sorted = pair_sort.Sort(clocks, seeds, filesizes[seg] / sizeof(uint32_t));
 
             LOG_INFO("Writing sorted clocks to file");
             clockfd = open(clockFiles[seg].c_str(), O_WRONLY | O_TRUNC);
@@ -198,6 +196,8 @@ int main(int argc, char* argv[]) {
             close(seedfd);
         }
     }
+    free(clocks);
+    free(seeds);
 
     pair_sort.Init(0);
     LOG_INFO("STAGE TWO COMPLETE\n");
