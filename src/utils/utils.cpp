@@ -37,7 +37,7 @@ uint32_t calc_clocks(sfmt_t * sfmt) {
     return clocks;
 }
 
-void buildClocks(psort32 &pair_sort, uint32_t block, uint32_t target, vector<uint32_t> &clocks, vector<uint32_t> &seeds, size_t blocksize) {
+void buildClocks(psort32 &pair_sort, uint32_t block, uint32_t target, uint32_t * clocks, uint32_t * seeds, size_t blocksize) {
     uint32_t offset = block * blocksize;
     
     LOG_INFO("Calculating clocks for seeds from %08X to %08lX", offset, offset + blocksize - 1);
@@ -53,31 +53,23 @@ void buildClocks(psort32 &pair_sort, uint32_t block, uint32_t target, vector<uin
     
     LOG_INFO("Sorting clocks and seeds");
     
-    auto sorted = pair_sort.Sort(clocks.data(), seeds.data(), blocksize);
-    memcpy(clocks.data(), sorted.first, blocksize * sizeof(uint32_t));
-    memcpy(seeds.data(), sorted.second, blocksize * sizeof(uint32_t));
+    auto sorted = pair_sort.Sort(clocks, seeds, blocksize);
+    memcpy(clocks, sorted.first, blocksize * sizeof(uint32_t));
+    memcpy(seeds, sorted.second, blocksize * sizeof(uint32_t));
     
     LOG_INFO("Copied into vector");
+    return;
 }
 
 void countClocks(string clockName, vector<uint32_t> &counts, size_t size) {
     int fd = open(clockName.c_str(), O_RDONLY);
     if (fd < 0) throw;
-    size_t fsize = size * sizeof(uint32_t);
-    fsize += 4096 - fsize % 4096;
-    uint32_t * clockdata = (uint32_t *) mmap(NULL, fsize, PROT_READ, MAP_SHARED, fd, 0);
+    uint32_t * clockdata = (uint32_t *) mmap(NULL, size * sizeof(uint32_t), PROT_READ, MAP_SHARED, fd, 0);
     
     #pragma omp parallel for
     for(uint32_t seed = 0; seed < size; ++seed) {
         ++counts[clockdata[seed]];
     }
-    // // for(uint32_t thread = 0; thread < NUM_THREADS; ++thread) {
-    //     // uint32_t throff = thread * BLOCK_SIZE / NUM_THREADS;
-    //     // for(uint32_t seed = throff; seed < throff + BLOCK_SIZE / NUM_THREADS; ++seed) {
-    //     for(uint32_t seed = 0; seed < BLOCK_SIZE; seed += NUM_THREADS) {
-    //         ++counts[clockdata[seed + thread]];
-    //     }
-    // }
     munmap(clockdata, fsize);
     close(fd);
 }
