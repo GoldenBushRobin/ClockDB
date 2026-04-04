@@ -24,8 +24,8 @@ add_library(searchutils STATIC ${SOURCE_DIR}/utils/search_utils.cpp)
 target_link_libraries(searchutils PRIVATE utils)
 target_include_directories(searchutils PUBLIC ${INCLUDE_DIR})
 
-add_executable(quickbuild ${SOURCE_DIR}/quickbuild.cpp)
-target_link_libraries(quickbuild PRIVATE utils)
+add_executable(build ${SOURCE_DIR}/build.cpp)
+target_link_libraries(build PRIVATE utils)
 
 add_executable(search ${SOURCE_DIR}/search.cpp)
 target_link_libraries(search PRIVATE utils searchutils)

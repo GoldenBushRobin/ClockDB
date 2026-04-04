@@ -8,4 +8,9 @@
 #define SEG_COUNT 17
 #define SEG_SIZE (MAX_CLOCK / SEG_COUNT)
 
+#ifndef PAGESIZE
+#define PAGESIZE sysconf(_SC_PAGESIZE)
+#endif
+#define PAGEENTS (PAGESIZE / sizeof(uint32_t))
+
 inline int CLOCKOFFS[7] = {24137569, 1419857, 83521, 4913, 289, 17, 1};
