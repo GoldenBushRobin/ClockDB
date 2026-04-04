@@ -2,11 +2,11 @@
 
 #define SFMT_MEXP 19937
 extern "C" {
-#include "SFMT.h"
+#include "SFMT/SFMT.h"
 }
 void sfmt_skip_rands(sfmt_t * sfmt, uint32_t skipped);
 
-#include "parallel_radix_sort.h"
+#include "parallel-radix-sort/parallel_radix_sort.h"
 #include "constants.h"
 
 #include <cstdint>

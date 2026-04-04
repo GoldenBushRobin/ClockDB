@@ -7,30 +7,22 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -ansi -Wno-deprecated -std=c++20 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -O3 -msse2 ${DEFINE}")
 
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
+set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
 
-add_library(sfmt STATIC ${CMAKE_SOURCE_DIR}/SFMT/SFMT.c)
-target_include_directories(sfmt PUBLIC ${CMAKE_SOURCE_DIR}/SFMT)
+
+add_library(sfmt STATIC ${INCLUDE_DIR}/SFMT/SFMT.c)
+target_include_directories(sfmt PUBLIC ${INCLUDE_DIR}/SFMT)
 
 add_library(parallel-radix-sort INTERFACE)
-target_include_directories(parallel-radix-sort INTERFACE ${CMAKE_SOURCE_DIR}/parallel-radix-sort)
+target_include_directories(parallel-radix-sort INTERFACE ${INCLUDE_DIR}/parallel-radix-sort)
 
-add_library(utils STATIC ${SOURCE_DIR}/utils.cpp)
+add_library(utils STATIC ${SOURCE_DIR}/utils/utils.cpp)
 target_link_libraries(utils PRIVATE parallel-radix-sort sfmt)
-target_include_directories(utils 
-    PUBLIC 
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/SFMT
-        ${CMAKE_SOURCE_DIR}/parallel-radix-sort
-    PRIVATE
-        ${SOURCE_DIR}
-)
+target_include_directories(utils PUBLIC ${INCLUDE_DIR})
 
-add_library(searchutils STATIC ${SOURCE_DIR}/search_utils.cpp)
+add_library(searchutils STATIC ${SOURCE_DIR}/utils/search_utils.cpp)
 target_link_libraries(searchutils PRIVATE utils)
-target_include_directories(searchutils
-    PUBLIC
-        ${CMAKE_SOURCE_DIR}/include
-)
+target_include_directories(searchutils PUBLIC ${INCLUDE_DIR})
 
 add_executable(quickbuild ${SOURCE_DIR}/quickbuild.cpp)
 target_link_libraries(quickbuild PRIVATE utils)
