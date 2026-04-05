@@ -8,6 +8,7 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11 -O3 -msse2 ${DEFINE}")
 
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
+set(UTILS_DIR ${SOURCE_DIR}/utils)
 
 
 add_library(sfmt STATIC ${INCLUDE_DIR}/SFMT/SFMT.c)
@@ -16,16 +17,24 @@ target_include_directories(sfmt PUBLIC ${INCLUDE_DIR}/SFMT)
 add_library(parallel-radix-sort INTERFACE)
 target_include_directories(parallel-radix-sort INTERFACE ${INCLUDE_DIR}/parallel-radix-sort)
 
-add_library(utils STATIC ${SOURCE_DIR}/utils/utils.cpp)
-target_link_libraries(utils PRIVATE parallel-radix-sort sfmt)
-target_include_directories(utils PUBLIC ${INCLUDE_DIR})
+add_library(common 
+    ${UTILS_DIR}/io_utils.cpp 
+    ${UTILS_DIR}/rand_utils.cpp 
+    ${UTILS_DIR}/log_utils.cpp
+)
+target_link_libraries(common PRIVATE sfmt)
+target_include_directories(common PUBLIC ${INCLUDE_DIR})
 
-add_library(searchutils STATIC ${SOURCE_DIR}/utils/search_utils.cpp)
-target_link_libraries(searchutils PRIVATE utils)
+add_library(buildutils ${UTILS_DIR}/build_utils.cpp)
+target_link_libraries(buildutils PRIVATE parallel-radix-sort common)
+target_include_directories(buildutils PUBLIC ${INCLUDE_DIR})
+
+add_library(searchutils ${UTILS_DIR}/search_utils.cpp)
+target_link_libraries(searchutils PRIVATE common)
 target_include_directories(searchutils PUBLIC ${INCLUDE_DIR})
 
 add_executable(build ${SOURCE_DIR}/build.cpp)
-target_link_libraries(build PRIVATE utils)
+target_link_libraries(build PRIVATE buildutils)
 
 add_executable(search ${SOURCE_DIR}/search.cpp)
-target_link_libraries(search PRIVATE utils searchutils)
+target_link_libraries(search PRIVATE searchutils)

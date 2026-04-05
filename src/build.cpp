@@ -1,28 +1,26 @@
-#include "utils.h"
+#include "build_utils.h"
+#include "io_utils.h"
+#include "constants.h"
+#include "log_utils.h"
 // I/O
 #include <iostream>
 #include <filesystem>
-// #include <format>
-#include <fstream>
+// #include <fstream>
 
-// data types
-#include <vector>
-#include <string>
-#include <cstring>
+// // data types
+// #include <vector>
+// #include <string>
+// #include <cstring>
 
-// memory mapping
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/mman.h>
-
-// other
+// // other
 #include <numeric>
 #include <algorithm>
-#include <cassert>
+// #include <cassert>
 
 using std::cin,std::cout,std::cerr,std::endl,std::flush;
-using std::stoi,std::string,std::vector,std::memcpy;
-using std::ifstream,std::ofstream;
+using std::stoi;
+// ,std::string,std::vector,std::memcpy;
+// using std::ifstream,std::ofstream;
 namespace fs = std::filesystem;
 
 int main(int argc, char* argv[]) {
@@ -33,8 +31,7 @@ int main(int argc, char* argv[]) {
         cout << "Offset> ";
         cin >> skipped;
     }
-    uint32_t target = skipped * 2;
-
+    
     fs::path binDir = fs::path("bin") / std::to_string(skipped);
     fs::path countFile = binDir / "counts.bin";
     fs::path indexFile = binDir / "indices.bin";
@@ -49,39 +46,43 @@ int main(int argc, char* argv[]) {
     
     try {
         if(fs::create_directories(binDir)) {
-            LOG_INFO("Created directory: %s", binDir.c_str());
+            LOG(INFO, "Created directory: %s", binDir.c_str());
         } else {
-            LOG_INFO("Directory already exists: %s", binDir.c_str());
+            LOG(INFO, "Directory already exists: %s", binDir.c_str());
         }
     } catch (const fs::filesystem_error &e) {
-        LOG_INFO("Error creating directory: %s", e.what());
+        LOG(INFO, "Error creating directory: %s", e.what());
     }
-    
-    LOG_INFO("STAGE ONE: Clock calculation and temporary storage");
     
     for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
-        int clockfd = open(clockFiles[seg].c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
-        int seedfd = open(seedFiles[seg].c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
-        close(clockfd);
-        close(seedfd);
+        creat(clockFiles[seg].c_str());
+        creat(seedFiles[seg].c_str());
     }
-
-    uint32_t extra = SEG_COUNT * PAGEENTS;
+    
     size_t BLOCKCOUNT = 16;
     size_t BLOCKSIZE = (1ULL << 32) / BLOCKCOUNT;
+    size_t segsizes[SEG_COUNT] = {0}; // by indices
+    size_t filesizes[SEG_COUNT] = {0}; // by bytes
+
+    LOG(INFO, "STAGE ONE: Clock calculation and temporary storage");
     
+    uint32_t extra = SEG_COUNT * PAGEENTS;
     size_t datasize = BLOCKSIZE + extra;
+    
     psort32 pair_sort;
     pair_sort.Init(datasize);
     
-    size_t segsizes[SEG_COUNT] = {0}; // by index
-    size_t filesizes[SEG_COUNT] = {0};
-    uint32_t * clocks = (uint32_t *) std::aligned_alloc(PAGESIZE, datasize * sizeof(uint32_t));
-    uint32_t * seeds = (uint32_t *) std::aligned_alloc(PAGESIZE, datasize * sizeof(uint32_t));
-    
+    uint32_t * clocks;
+    uint32_t * seeds;
+    void* tmp;
+
+    posix_memalign(&tmp, PAGESIZE, datasize * SIZE32);
+    clocks = static_cast<uint32_t*>(tmp);
+    posix_memalign(&tmp, PAGESIZE, datasize * SIZE32);
+    seeds = static_cast<uint32_t*> (tmp);
     {
         for(size_t block = 0; block < BLOCKCOUNT; ++block) {
-            buildClocks(pair_sort, block, target, clocks, seeds, BLOCKSIZE);
+            buildClocks(skipped, block * BLOCKSIZE, BLOCKSIZE, pair_sort, clocks, seeds);
             char repl = -1;
             if(block == BLOCKCOUNT - 1) repl = 0;
             memset(clocks + BLOCKSIZE, repl, extra * 4);
@@ -118,107 +119,82 @@ int main(int argc, char* argv[]) {
             
             pos = 0;
             for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
-                int clockfd = open(clockFiles[seg].c_str(), O_WRONLY);
-                int seedfd = open(seedFiles[seg].c_str(), O_WRONLY);
-                off_t offset = lseek(clockfd, 0, SEEK_END);
-                
                 size_t cutoff = (seg + 1) * SEG_SIZE - 1;
-                size_t writesize = (sizes[seg] + offsets[seg]) * sizeof(uint32_t);
+                size_t writesize = (sizes[seg] + offsets[seg]) * SIZE32;
+                
+                // there will be less than 1024 of these, so is fine to iterate
                 for(size_t index = pos + sizes[seg] + offsets[seg] - 1; sorted.first[index] == cutoff;--index) {
                     uint32_t check = 0xFFFFFFFF;
-                    if(repl == 0) check = 0; 
+                    if(!repl) check = 0;
                     if(sorted.second[index] == check) {
                         sorted.first[index] = 0xFFFFFFFF;
                         sorted.second[index] = 0;
                     }
                 }
-
-                pwrite(clockfd, sorted.first + pos, writesize, offset);
-                pwrite(seedfd, sorted.second + pos, writesize, offset);
+                
+                append(clockFiles[seg].c_str(), sorted.first + pos, writesize);
+                append(seedFiles[seg].c_str(), sorted.second + pos, writesize);
                 // let's pretend it worked and move on
                 pos += sizes[seg] + offsets[seg];
                 filesizes[seg] += writesize;
-                close(clockfd);
-                close(seedfd);
             }
         }
     }
     free(clocks);
     free(seeds);
-
-    LOG_INFO("STAGE ONE COMPLETE\n");
-
-    LOG_INFO("STAGE TWO: Sort built files");
-    size_t sortsize = *std::max_element(filesizes, filesizes + SEG_COUNT);
-    sortsize = (sortsize / PAGESIZE + 1) * PAGESIZE;
-    
-    pair_sort.Init(sortsize / sizeof(uint32_t));
-    clocks = (uint32_t *) std::aligned_alloc(PAGESIZE, sortsize);
-    seeds = (uint32_t *) std::aligned_alloc(PAGESIZE, sortsize);
-
-    {
-        for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
-            LOG_INFO("Coping clocks from file %s", clockFiles[seg].c_str());
-            int clockfd = open(clockFiles[seg].c_str(), O_RDONLY);
-            uint32_t* clockdata = (uint32_t*) mmap(NULL, filesizes[seg], PROT_READ, MAP_PRIVATE, clockfd, 0);
-            if(clockdata == MAP_FAILED) {
-                perror("Map Failed");
-                return 1;
-            }
-            memcpy(clocks, clockdata, filesizes[seg]);
-            munmap(clockdata, filesizes[seg]);
-            close(clockfd);
-            
-            LOG_INFO("Coping seeds from file %s", clockFiles[seg].c_str());
-            int seedfd = open(seedFiles[seg].c_str(), O_RDONLY);
-            uint32_t* seeddata = (uint32_t*) mmap(NULL, filesizes[seg], PROT_READ, MAP_PRIVATE, seedfd, 0);
-            if(seeddata == MAP_FAILED) {
-                perror("Map Failed");
-                return 1;
-            }
-            memcpy(seeds, seeddata, filesizes[seg]);
-            munmap(seeddata, filesizes[seg]);
-            close(seedfd);
-
-            LOG_INFO("Sorting clocks and seeds");
-            auto sorted = pair_sort.Sort(clocks, seeds, filesizes[seg] / sizeof(uint32_t));
-
-            LOG_INFO("Writing sorted clocks to file");
-            clockfd = open(clockFiles[seg].c_str(), O_WRONLY | O_TRUNC);
-            pwrite(clockfd, sorted.first, segsizes[seg] * sizeof(uint32_t), 0);
-            // let's pretend it worked and move on
-            close(clockfd);
-            
-            LOG_INFO("Writing sorted seeds to file");
-            seedfd = open(seedFiles[seg].c_str(), O_WRONLY | O_TRUNC);
-            pwrite(seedfd, sorted.second, segsizes[seg] * sizeof(uint32_t), 0);
-            // let's pretend it worked and move on
-            close(seedfd);
-        }
-    }
-    free(clocks);
-    free(seeds);
-
     pair_sort.Init(0);
-    LOG_INFO("STAGE TWO COMPLETE\n");
 
-    LOG_INFO("STAGE THREE: Count clocks in files");
+    LOG(INFO, "STAGE ONE COMPLETE\n");
+
+    LOG(INFO, "STAGE TWO: Sort built files");
     
     {
-        vector<uint32_t> counts(MAX_CLOCK + 1, 0);
-        for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
-            LOG_INFO("Counting clocks for block %ld",seg);
-            countClocks(clockFiles[seg], counts, segsizes[seg]);    
-            LOG_INFO("Segment %ld clocks added.",seg);
-        }
-        writeVector(counts, MAX_CLOCK, countFile);
+        size_t sortsize = *std::max_element(filesizes, filesizes + SEG_COUNT);
+
+        pair_sort.Init(sortsize / SIZE32);
+        posix_memalign(&tmp, PAGESIZE, sortsize * SIZE32);
+        clocks = static_cast<uint32_t*>(tmp);
+        posix_memalign(&tmp, PAGESIZE, sortsize * SIZE32);
+        seeds = static_cast<uint32_t*> (tmp);
         
-        vector<uint32_t> indices(MAX_CLOCK + 1, 0);
-        LOG_INFO("Calculating indices from counts to %s", indexFile.c_str());
-        std::exclusive_scan(counts.begin(),counts.end(),indices.begin(),0);
-        writeVector(indices, MAX_CLOCK + 1, indexFile);
+        for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
+            LOG(INFO, "Coping clocks from file %s", clockFiles[seg].c_str());
+            read_map(clockFiles[seg].c_str(), clocks, filesizes[seg]);
+            
+            LOG(INFO, "Coping seeds from file %s", clockFiles[seg].c_str());
+            read_map(seedFiles[seg].c_str(), seeds, filesizes[seg]);
+            
+            LOG(INFO, "Sorting clocks and seeds");
+            auto sorted = pair_sort.Sort(clocks, seeds, filesizes[seg] / SIZE32);
+
+            LOG(INFO, "Writing sorted clocks to file");
+            write(clockFiles[seg].c_str(), sorted.first, segsizes[seg] * SIZE32);
+            LOG(INFO, "Writing sorted seeds to file");
+            write(seedFiles[seg].c_str(), sorted.second, segsizes[seg] * SIZE32);
+        }
     }
-    LOG_INFO("STAGE THREE COMPLETE\n");
+    free(clocks);
+    free(seeds);
+    pair_sort.Init(0);
+
+    LOG(INFO, "STAGE TWO COMPLETE\n");
+
+    LOG(INFO, "STAGE THREE: Count clocks in files");
+    
+    {
+        uint32_t * counts = (uint32_t*) calloc((MAX_CLOCK + 1), SIZE32);
+        for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
+            LOG(INFO, "Counting clocks for block %ld",seg);
+            countClocks(clockFiles[seg].c_str(), counts, segsizes[seg]);    
+            LOG(INFO, "Segment %ld clocks added.",seg);
+        }
+        
+        LOG(INFO, "Calculating indices from counts to %s", indexFile.c_str());
+        std::exclusive_scan(counts,counts + MAX_CLOCK + 1,counts,0);
+        write(indexFile.c_str(), counts, (MAX_CLOCK + 1) * SIZE32);
+        free(counts);
+    }
+    LOG(INFO, "STAGE THREE COMPLETE\n");
     
     return 0;
 }

@@ -8,8 +8,8 @@ void sfmt_skip_rands(sfmt_t* sfmt, size_t skipped) {
 }
 
 void sfmt_init_clocks(sfmt_t* sfmt, uint32_t seed, size_t skipped) {
-    sfmt_init_gen_rand(&sfmt, seed);
-    sfmt_skip_rands(&sfmt,skipped);    
+    sfmt_init_gen_rand(sfmt, seed);
+    sfmt_skip_rands(sfmt,skipped);    
 }
 
 uint32_t calc_clocks(sfmt_t* sfmt) {

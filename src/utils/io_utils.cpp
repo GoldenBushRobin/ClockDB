@@ -1,33 +1,49 @@
 #include "io_utils.h"
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/mman.h>
+#include <cstring>
 
-void read(char * path, void * buf, size_t size) {
+void creat(const char * path) {
+    creat(path, 0644);
+}
+
+void read(const char * path, void * buf, size_t size) {
     int fd = open(path, O_RDONLY);
     read(fd, buf, size);
     close(fd);
 }
 
-void write(char * path, void * buf, size_t size) {
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644)
+void write(const char * path, void * buf, size_t size) {
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     write(fd, buf, size);      
     close(fd);
 }
 
-void append(char * path, void * buf, size_t size, off_t off) {
-    int fd = open(path, O_WRONLY | O_APPEND)
-    pwrite(fd, buf, size, off);
+void append(const char * path, void * buf, size_t size) {
+    int fd = open(path, O_WRONLY | O_APPEND);
+    write(fd, buf, size);
     close(fd);
 }
 
-int read_map(char * path, void * &data, size_t size) {
+int make_map(const char * path, void * &mapping, size_t size) {
     int fd = open(path, O_RDONLY);
-    data = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    mapping = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
     return fd;
 }
 
-void close_map(int fd, void * &data, size_t size) {
-    munmap(data, size);
-    data = NULL;
+void close_map(int fd, void * &mapping, size_t size) {
+    munmap(mapping, size);
+    mapping = NULL;
     close(fd);
 }
+
+void read_map(const char * path, void * data, size_t size) {
+    void * mapping;
+    int fd = make_map(path, mapping, size);
+    memcpy(data, mapping, size);
+    close_map(fd, mapping, size);
+}
+
+
+

@@ -2,6 +2,6 @@
 #include <chrono>
 #include <format>
 
-const char* timestamp() {
-    return std::format("{:%F %T}", std::chrono::system_clock::now()).c_str()
+std::string timestamp() {
+    return std::format("{:%F %T}", std::chrono::system_clock::now());
 }

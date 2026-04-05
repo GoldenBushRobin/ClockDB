@@ -4,11 +4,11 @@
 #include "io_utils.h"
 
 void buildClocks(size_t skipped, uint32_t offset, size_t size, psort32 &pair_sort, uint32_t * clocks, uint32_t * seeds) {    
-    LOG(INFO, "Calculating clocks for seeds from %08lX to %08lX", offset, offset + size - 1);
+    LOG(INFO, "Calculating clocks for seeds from %08X to %08lX", offset, offset + size - 1);
     
     #pragma omp parallel for
     for(uint32_t idx = 0; idx < size; ++idx) {
-        uint32_t seed = offset + idx
+        uint32_t seed = offset + idx;
         sfmt_t sfmt;
         sfmt_init_clocks(&sfmt, seed, skipped);
         clocks[idx] = calc_clocks(&sfmt);
@@ -24,26 +24,15 @@ void buildClocks(size_t skipped, uint32_t offset, size_t size, psort32 &pair_sor
     LOG(INFO, "Copied into vector");
 }
 
-void countClocks(char * path, uint32_t * counts, size_t size) {
+void countClocks(const char * path, uint32_t * counts, size_t size) {
     uint32_t * clockdata;
     size_t fsize = size * sizeof(uint32_t);
-    int fd = read_map(path, clockdata, fsize);
-    
+    void* tmp;
+    int fd = make_map(path, tmp, fsize);
+    clockdata = static_cast<uint32_t*>(tmp);
     #pragma omp parallel for
     for(uint32_t seed = 0; seed < size; ++seed) {
         ++counts[clockdata[seed]];
     }
-    close_map(fd, clockdata, fsize);
-}
-
-size_t binarySearch(uint32_t* arr, size_t size, uint32_t val) {
-    size_t pos = 0;
-    size_t start = 1 << 63;
-    while(start * 2 < size) start <<= 1;
-    for(size_t jump = start; jump != 0;jump >>= 1) {
-        if(pos + jump < size && arr[pos + jump] < val) {
-            pos += jump;
-        }
-    }
-    return pos + 1;
+    close_map(fd, tmp, fsize);
 }
