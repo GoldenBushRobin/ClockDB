@@ -1,13 +1,17 @@
-#include "utils.h"
 #include "search_utils.h"
+#include "log_utils.h"
+#include "constants.h"
 
 #include <iostream>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <filesystem>
+#include <format>
+#include <cstring>
 
 using std::cin,std::cout,std::cerr,std::endl,std::flush;
-using std::stoi,std::string,std::vector,std::memcpy;
+using std::stoi,std::string,std::vector,std::set;
 using std::ifstream,std::ofstream;
 namespace fs = std::filesystem;
 
@@ -55,8 +59,8 @@ int main(int argc, char* argv[]) {
         if(!input.length()) continue;
 
         vector<uint32_t> clockin;
-        if(int res = parseLine(input,clockin)) {
-            cerr << "Error in parsing input, error code " << res;
+        if(parseLine(input,clockin)) {
+            cerr << "Error in parsing input";
             continue;
         }
         int clock = clockConvert(clockin);
@@ -64,18 +68,18 @@ int main(int argc, char* argv[]) {
             cerr << "Error in converting clocks";
             continue;
         }
-        vector<uint32_t> clocks;
-        if(int res = clockCandidates(clock, clockin.size(), clocks)) {
-            cerr << "Error in generating clock candidates, error code " << res;
+        set<uint32_t> clkgroups;
+        if(clockCandidates(clock, clockin.size(), clkgroups)) {
+            cerr << "Error in generating clock candidates";
             continue;
         }
 
-        size_t num_cand = countCandidates(clocks, clockin.size(), indices);
+        size_t num_cand = countCandidates(clkgroups, clockin.size(), indices);
         cout << "There are " << num_cand << " candidates for the seed\n";
 
-        vector<uint32_t> seeds;
+        set<uint32_t> seeds;
         if(num_cand < 100000) { // with 7 inputs, shouldd be aroun 20,000
-            if(getSeeds(clocks, clockin.size(), seedfiles, indices, seeds)) {
+            if(getSeeds(clkgroups, clockin.size(), seedfiles, indices, seeds)) {
                 cerr << "Error in retrieving candidate seeds\n";
                 continue;
             }
