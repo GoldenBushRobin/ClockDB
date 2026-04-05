@@ -1,6 +1,7 @@
 #include "search_utils.h"
 #include "log_utils.h"
 #include "constants.h"
+#include "io_utils.h"
 
 #include <iostream>
 #include <fcntl.h>
@@ -39,17 +40,20 @@ int main(int argc, char* argv[]) {
     }
     
     // Load index file into mmapped memory
-    int idxfd = open(indexName.c_str(), O_RDONLY);
-    uint32_t* indices = (uint32_t *) mmap(NULL, (MAX_CLOCK + 1) * sizeof(uint32_t), PROT_READ, MAP_PRIVATE, idxfd, 0);
-
+    // int idxfd = open(indexName.c_str(), O_RDONLY);
+    // uint32_t* indices = (uint32_t *) mmap(NULL,  * sizeof(uint32_t), PROT_READ, MAP_PRIVATE, idxfd, 0);
+    void* tmp;
+    int idxfd = make_map(indexName.c_str(), tmp, (MAX_CLOCK + 1) * SIZE32);
+    uint32_t* indices = static_cast<uint32_t*>(tmp);
     // Load seed files into memory
 
     int seedfd[SEG_COUNT];
     uint32_t* seedfiles[SEG_COUNT];
     
     for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
-        seedfd[seg] = open(seedNames[seg].c_str(), O_RDONLY);
-        seedfiles[seg] = (uint32_t *) mmap(NULL, (1 << 30), PROT_READ, MAP_PRIVATE, seedfd[seg], 0);
+        void* tmp;
+        seedfd[seg] = make_map(seedNames[seg].c_str(), tmp, (1 << 30));
+        seedfiles[seg] = static_cast<uint32_t*>(tmp);
     }
 
     string input;
@@ -97,6 +101,10 @@ int main(int argc, char* argv[]) {
         }
     } while(!input.empty());
 
-    munmap(indices, (MAX_CLOCK + 1) * sizeof(uint32_t));
-    close(idxfd);
+    tmp = static_cast<void*>(indices);
+    close_map(idxfd, tmp, (MAX_CLOCK + 1) * SIZE32);
+    for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
+        tmp = static_cast<void*>(seedfiles[seg]);
+        close_map(seedfd[seg], tmp, (1 << 30));
+    }
 }
