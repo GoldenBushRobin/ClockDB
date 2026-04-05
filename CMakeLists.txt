@@ -53,9 +53,6 @@ target_link_libraries(build PUBLIC OpenMP::OpenMP_CXX)
 add_executable(search ${SOURCE_DIR}/search.cpp)
 target_link_libraries(search PRIVATE searchutils)
 
-add_executable(test123 ${SOURCE_DIR}/testid.cpp)
-target_link_libraries(test123 PRIVATE common)
-
 find_package(Crow)
 
 add_library(serverutils ${UTILS_DIR}/server_utils.cpp)
@@ -64,5 +61,5 @@ target_include_directories(serverutils PUBLIC ${INCLUDE_DIR})
 target_compile_options(serverutils PRIVATE -lpthread)
 
 add_executable(server ${SOURCE_DIR}/searchserver.cpp)
-target_link_libraries(server PUBLIC Crow::Crow PRIVATE serverutils)
+target_link_libraries(server PUBLIC Crow::Crow PRIVATE serverutils searchutils)
 target_compile_options(server PRIVATE -lpthread)
