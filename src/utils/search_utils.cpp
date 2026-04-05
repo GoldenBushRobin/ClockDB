@@ -156,6 +156,8 @@ int filter(vector<uint32_t> &clocks, uint32_t skipped, set<uint32_t> &seeds, siz
 }
 
 size_t search_seeds(vector<uint32_t> &clocks, uint32_t skipped, seeddata data, set<uint32_t> &seeds) {
+    if(!data.valid) return -1;
+    
     // only populate seeds if total candidates < 100,000
     int clock = clockConvert(clocks);
     if(clock == -1) {

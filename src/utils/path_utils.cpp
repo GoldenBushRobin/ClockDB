@@ -47,10 +47,11 @@ void seeddata::loadfiles(size_t skipped) {
     void* tmp;
     idxfd = make_map(indexFile.c_str(), tmp, (MAX_CLOCK + 1) * SIZE32);
     indices = static_cast<uint32_t*>(tmp);
-
+    if(idxfd < 0) valid = false;
     for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
         seedfd[seg] = make_map(seedFiles[seg].c_str(), tmp, (1 << 30));
         seedfiles[seg] = static_cast<uint32_t*>(tmp);
+        if(seedfd[seg] < 0) valid = false;
     }
 }
 
