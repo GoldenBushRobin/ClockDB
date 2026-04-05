@@ -20,9 +20,9 @@ Build the make file and compile binaries.
 cmake .. && make
 ```
 
-Build the database with the desired offset .
-For the main rng, the offset is 417 for Sun/Moon and 477 for UltraSun/UltraMoon.
-For the id generation, the offset is 1012 for Sun/Moon and 1132 for UltraSun/UltraMoon.
+Build the database with the desired offset.
+
+For the main rng, the offset is 417 for Sun/Moon and 477 for UltraSun/UltraMoon. For id generation, offset is 1012 for Sun/Moon and 1132 for UltraSun/UltraMoon.
 
 ```shell
 ./build --offset 477
