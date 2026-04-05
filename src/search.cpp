@@ -54,12 +54,12 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        size_t num_cand = countCandidates(clkgroups, clockin.size(), data.indices);
+        size_t num_cand = countCandidates(clkgroups, clockin.size(), data);
         cout << "There are " << num_cand << " candidates for the seed\n";
 
         set<uint32_t> seeds;
         if(num_cand < 100000) { // with 7 inputs, shouldd be aroun 20,000
-            if(getSeeds(clkgroups, clockin.size(), data.seedfiles, data.indices, seeds)) {
+            if(getSeeds(clkgroups, clockin.size(), data, seeds)) {
                 cerr << "Error in retrieving candidate seeds\n";
                 continue;
             }
