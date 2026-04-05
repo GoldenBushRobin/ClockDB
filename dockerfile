@@ -5,8 +5,7 @@ RUN apk add --no-cache cmake make
 COPY . /app
 
 WORKDIR /app/build
-RUN cmake ..
-RUN make
+RUN cmake .. && make 
 
 FROM alpine:latest
 COPY --from=builder /usr/lib/libstdc++.so.6 /usr/lib/libstdc++.so.6
