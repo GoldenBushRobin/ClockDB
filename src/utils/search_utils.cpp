@@ -4,6 +4,7 @@
 #include "constants.h"
 
 #include <sstream>
+#include <algorithm>
 
 using std::string, std::vector, std::set;
 
@@ -12,6 +13,7 @@ int parseLine(string input, vector<uint32_t> &clocks) {
         LOG(ERROR, "Input string is too long");
         return 1;
     }
+    std::replace(input.begin(), input.end(), ',', ' ');
     std::istringstream ss(input);
     uint32_t clock = 0;
     while(ss >> clock) {
@@ -49,7 +51,7 @@ void addClockCands(size_t clockNum, set<uint32_t> &clkgroups) {
     clkgroups.merge(addon);
 }
 
-int clockCandidates(uint32_t clock, size_t num, set<uint32_t> &clkgroups) {
+int clockCandidates(uint32_t clock, size_t num, set<uint32_t> &clkgroups, bool fuzzy) {
     if(clock >= MAX_CLOCK) {
         LOG(ERROR, "Clock input to large, %d", clock);
         return 1;
@@ -62,8 +64,10 @@ int clockCandidates(uint32_t clock, size_t num, set<uint32_t> &clkgroups) {
     }
  
     clkgroups.insert(clock);
-    for(size_t pos = 0; pos < 7 && pos < num; ++pos) {
-        addClockCands(pos, clkgroups);
+    if(fuzzy) {
+        for(size_t pos = 0; pos < 7 && pos < num; ++pos) {
+            addClockCands(pos, clkgroups);
+        }
     }
     return 0;
 }
