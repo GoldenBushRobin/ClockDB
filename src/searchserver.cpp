@@ -1,6 +1,7 @@
 #include "server_utils.h"
 #include "path_utils.h"
 #include "search_utils.h"
+#include "log_utils.h"
 
 seeddata smmain, usummain, smid, usumid;
 
@@ -10,6 +11,7 @@ crow::response handleSeed(const crow::request& req, bool isUltra, bool isId) {
         return crow::response(400);
     }
     std::string needlestr(needle);
+    LOG(INFO, "%s", needlestr.c_str());
     std::vector<uint32_t> clocks;
     parseLine(needlestr, clocks);
     rotateClocks(clocks, isId);
@@ -26,7 +28,7 @@ crow::response handleSeed(const crow::request& req, bool isUltra, bool isId) {
     std::set<uint32_t> seeds;
     size_t count = search_seeds(clocks, skipped, data, seeds);
     if(count > 100) {
-        return crow::response(400);
+        return crow::response("Too many resulting seeds");
     }
     
     return crow::response(200); // figure out the response format later
@@ -57,8 +59,8 @@ void make_routes(crow::SimpleApp& app) {
 int main(int argc, char* argv[]) {
     smmain.loadfiles(417);
     usummain.loadfiles(477);
-    smid.loadfiles(417);
-    usumid.loadfiles(477);
+    smid.loadfiles(1012);
+    usumid.loadfiles(1132);
     
     crow::SimpleApp app;
     make_routes(app);
