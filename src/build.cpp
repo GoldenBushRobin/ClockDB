@@ -2,25 +2,15 @@
 #include "io_utils.h"
 #include "constants.h"
 #include "log_utils.h"
-// I/O
+
 #include <iostream>
 #include <filesystem>
-// #include <fstream>
 
-// // data types
-// #include <vector>
-// #include <string>
-// #include <cstring>
-
-// // other
 #include <numeric>
 #include <algorithm>
-// #include <cassert>
 
 using std::cin,std::cout,std::cerr,std::endl,std::flush;
 using std::stoi;
-// ,std::string,std::vector,std::memcpy;
-// using std::ifstream,std::ofstream;
 namespace fs = std::filesystem;
 
 int main(int argc, char* argv[]) {

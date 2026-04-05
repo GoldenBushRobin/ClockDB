@@ -4,16 +4,12 @@
 #include "io_utils.h"
 
 #include <iostream>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/mman.h>
 #include <filesystem>
 #include <format>
 #include <cstring>
 
-using std::cin,std::cout,std::cerr,std::endl,std::flush;
+using std::cin,std::cout,std::cerr,std::endl;
 using std::stoi,std::string,std::vector,std::set;
-using std::ifstream,std::ofstream;
 namespace fs = std::filesystem;
 
 int main(int argc, char* argv[]) {
