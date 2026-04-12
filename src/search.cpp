@@ -2,6 +2,7 @@
 #include "log_utils.h"
 #include "constants.h"
 #include "io_utils.h"
+#include "path_utils.h"
 
 #include <iostream>
 #include <filesystem>
@@ -22,36 +23,15 @@ int main(int argc, char* argv[]) {
         cout << "Offset> ";
         cin >> skipped;
     }
+    
     string ignore;
     getline(cin,ignore);
 
-    string binDir = std::format("bin/{:d}/", skipped);
-    string countName = binDir + "counts.bin";
-    string indexName = binDir + "indices.bin";
-    string clockNames[SEG_COUNT];
-    string seedNames[SEG_COUNT];
-    for(uint32_t seg = 0; seg < SEG_COUNT; ++seg) {
-        clockNames[seg] = std::format("{}clocks{:d}.bin", binDir, seg);
-        seedNames[seg] = std::format("{}seeds{:d}.bin", binDir, seg);
-    }
-    
     // Load index file into mmapped memory
-    // int idxfd = open(indexName.c_str(), O_RDONLY);
-    // uint32_t* indices = (uint32_t *) mmap(NULL,  * sizeof(uint32_t), PROT_READ, MAP_PRIVATE, idxfd, 0);
-    void* tmp;
-    int idxfd = make_map(indexName.c_str(), tmp, (MAX_CLOCK + 1) * SIZE32);
-    uint32_t* indices = static_cast<uint32_t*>(tmp);
+    seeddata data;
+    data.loadfiles(skipped);
     // Load seed files into memory
-
-    int seedfd[SEG_COUNT];
-    uint32_t* seedfiles[SEG_COUNT];
     
-    for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
-        void* tmp;
-        seedfd[seg] = make_map(seedNames[seg].c_str(), tmp, (1 << 30));
-        seedfiles[seg] = static_cast<uint32_t*>(tmp);
-    }
-
     string input;
     do {
         cout << "Input clock values> ";
@@ -74,12 +54,12 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        size_t num_cand = countCandidates(clkgroups, clockin.size(), indices);
+        size_t num_cand = countCandidates(clkgroups, clockin.size(), data);
         cout << "There are " << num_cand << " candidates for the seed\n";
 
         set<uint32_t> seeds;
         if(num_cand < 100000) { // with 7 inputs, shouldd be aroun 20,000
-            if(getSeeds(clkgroups, clockin.size(), seedfiles, indices, seeds)) {
+            if(getSeeds(clkgroups, clockin.size(), data, seeds)) {
                 cerr << "Error in retrieving candidate seeds\n";
                 continue;
             }
@@ -97,10 +77,5 @@ int main(int argc, char* argv[]) {
         }
     } while(!input.empty());
 
-    tmp = static_cast<void*>(indices);
-    close_map(idxfd, tmp, (MAX_CLOCK + 1) * SIZE32);
-    for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
-        tmp = static_cast<void*>(seedfiles[seg]);
-        close_map(seedfd[seg], tmp, (1 << 30));
-    }
+    data.close();
 }

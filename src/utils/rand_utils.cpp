@@ -20,3 +20,9 @@ uint32_t calc_clocks(sfmt_t* sfmt) {
     }
     return clocks;
 }
+
+uint32_t sfmt_calc_once(uint32_t seed, size_t skipped) {
+    sfmt_t sfmt;
+    sfmt_init_clocks(&sfmt,seed,skipped);
+    return calc_clocks(&sfmt);
+}

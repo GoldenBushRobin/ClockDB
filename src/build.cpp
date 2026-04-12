@@ -2,16 +2,15 @@
 #include "io_utils.h"
 #include "constants.h"
 #include "log_utils.h"
+#include "path_utils.h"
 
 #include <iostream>
-#include <filesystem>
 
 #include <numeric>
 #include <algorithm>
 
 using std::cin,std::cout,std::cerr,std::endl,std::flush;
 using std::stoi;
-namespace fs = std::filesystem;
 
 int main(int argc, char* argv[]) {
     uint32_t skipped;
@@ -21,33 +20,8 @@ int main(int argc, char* argv[]) {
         cout << "Offset> ";
         cin >> skipped;
     }
-    
-    fs::path binDir = fs::path("bin") / std::to_string(skipped);
-    fs::path countFile = binDir / "counts.bin";
-    fs::path indexFile = binDir / "indices.bin";
-    fs::path clockFiles[SEG_COUNT];
-    fs::path seedFiles[SEG_COUNT];
-
-    for(uint32_t seg = 0; seg < SEG_COUNT; ++seg) {
-        auto segStr = std::to_string(seg);
-        clockFiles[seg] = binDir / ("clocks" + segStr + ".bin");
-        seedFiles[seg] = binDir / ("seeds" + segStr + ".bin");
-    }
-    
-    try {
-        if(fs::create_directories(binDir)) {
-            LOG(INFO, "Created directory: %s", binDir.c_str());
-        } else {
-            LOG(INFO, "Directory already exists: %s", binDir.c_str());
-        }
-    } catch (const fs::filesystem_error &e) {
-        LOG(INFO, "Error creating directory: %s", e.what());
-    }
-    
-    for(size_t seg = 0; seg < SEG_COUNT; ++seg) {
-        creat(clockFiles[seg].c_str());
-        creat(seedFiles[seg].c_str());
-    }
+    initialize_paths(skipped);
+    setup_filestructure();
     
     size_t BLOCKCOUNT = 16;
     size_t BLOCKSIZE = (1ULL << 32) / BLOCKCOUNT;
@@ -64,7 +38,7 @@ int main(int argc, char* argv[]) {
     
     uint32_t * clocks;
     uint32_t * seeds;
-    void* tmp;
+    void* tmp = NULL;
 
     posix_memalign(&tmp, PAGESIZE, datasize * SIZE32);
     clocks = static_cast<uint32_t*>(tmp);

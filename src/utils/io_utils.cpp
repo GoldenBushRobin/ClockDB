@@ -28,11 +28,13 @@ void append(const char * path, void * buf, size_t size) {
 
 int make_map(const char * path, void * &mapping, size_t size) {
     int fd = open(path, O_RDONLY);
+    if(fd < 0) return -1;
     mapping = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
     return fd;
 }
 
 void close_map(int fd, void * &mapping, size_t size) {
+    if(fd < 0) return;
     munmap(mapping, size);
     mapping = NULL;
     close(fd);
@@ -41,6 +43,7 @@ void close_map(int fd, void * &mapping, size_t size) {
 void read_map(const char * path, void * data, size_t size) {
     void * mapping;
     int fd = make_map(path, mapping, size);
+    if(fd < 0) return;
     memcpy(data, mapping, size);
     close_map(fd, mapping, size);
 }

@@ -4,6 +4,7 @@
 #include "constants.h"
 
 #include <sstream>
+#include <algorithm>
 
 using std::string, std::vector, std::set;
 
@@ -12,6 +13,7 @@ int parseLine(string input, vector<uint32_t> &clocks) {
         LOG(ERROR, "Input string is too long");
         return 1;
     }
+    std::replace(input.begin(), input.end(), ',', ' ');
     std::istringstream ss(input);
     uint32_t clock = 0;
     while(ss >> clock) {
@@ -26,6 +28,14 @@ int parseLine(string input, vector<uint32_t> &clocks) {
         return 1;
     }
     return 0;
+}
+
+void rotateClocks(vector<uint32_t> &clocks, size_t add) {
+    if(add) {
+        for(auto it = clocks.begin(); it < clocks.end(); ++it) {
+            *it = (*it + add) % 17;
+        }
+    }
 }
 
 uint32_t clockConvert(vector<uint32_t> &clocks) {
@@ -49,7 +59,7 @@ void addClockCands(size_t clockNum, set<uint32_t> &clkgroups) {
     clkgroups.merge(addon);
 }
 
-int clockCandidates(uint32_t clock, size_t num, set<uint32_t> &clkgroups) {
+int clockCandidates(uint32_t clock, size_t num, set<uint32_t> &clkgroups, bool fuzzy) {
     if(clock >= MAX_CLOCK) {
         LOG(ERROR, "Clock input to large, %d", clock);
         return 1;
@@ -62,13 +72,15 @@ int clockCandidates(uint32_t clock, size_t num, set<uint32_t> &clkgroups) {
     }
  
     clkgroups.insert(clock);
-    for(size_t pos = 0; pos < 7 && pos < num; ++pos) {
-        addClockCands(pos, clkgroups);
+    if(fuzzy) {
+        for(size_t pos = 0; pos < 7 && pos < num; ++pos) {
+            addClockCands(pos, clkgroups);
+        }
     }
     return 0;
 }
 
-size_t countCandidates(set<uint32_t> &clkgroups, size_t num, uint32_t *indices) {
+size_t countCandidates(set<uint32_t> &clkgroups, size_t num, seeddata data) {
     size_t offset = 1;
     if(num < 7) {
         offset = CLOCKOFFS[num - 1];
@@ -83,12 +95,12 @@ size_t countCandidates(set<uint32_t> &clkgroups, size_t num, uint32_t *indices) 
             LOG(ERROR, "Initial clock does not have zeroed tail, %d", clock);
             return 1;
         }
-        count += indices[clock + offset] - indices[clock];
+        count += data.indices[clock + offset] - data.indices[clock];
     }
     return count;
 }
 
-int getSeeds(set<uint32_t> &clkgroups, size_t num, uint32_t * seedfiles[SEG_COUNT], uint32_t *indices, set<uint32_t> &seeds) {
+int getSeeds(set<uint32_t> &clkgroups, size_t num, seeddata data, set<uint32_t> &seeds) {
     if(num > 7) num = 7;
     for(uint32_t start : clkgroups) {
         uint32_t end = start + CLOCKOFFS[num - 1];
@@ -96,14 +108,14 @@ int getSeeds(set<uint32_t> &clkgroups, size_t num, uint32_t * seedfiles[SEG_COUN
         
         if((end - 1) / SEG_SIZE != fileno) {
             uint32_t mid = (fileno + 1) * SEG_SIZE;
-            for(size_t pos = 0; pos < indices[end] - indices[mid]; ++pos) {
-                seeds.insert(seedfiles[fileno + 1][pos]);
+            for(size_t pos = 0; pos < data.indices[end] - data.indices[mid]; ++pos) {
+                seeds.insert(data.seedfiles[fileno + 1][pos]);
             }
             end = mid;
         }
 
-        for(size_t pos = indices[start]; pos < indices[end]; ++pos) {
-            seeds.insert(seedfiles[fileno][pos - indices[fileno * SEG_SIZE]]);
+        for(size_t pos = data.indices[start]; pos < data.indices[end]; ++pos) {
+            seeds.insert(data.seedfiles[fileno][pos - data.indices[fileno * SEG_SIZE]]);
         }
     }
 
@@ -141,4 +153,27 @@ int filter(vector<uint32_t> &clocks, uint32_t skipped, set<uint32_t> &seeds, siz
     }
 
     return 0;
+}
+
+size_t search_seeds(vector<uint32_t> &clocks, uint32_t skipped, seeddata data, set<uint32_t> &seeds, bool fuzzy) {
+    if(!data.valid) return -1;
+    
+    // only populate seeds if total candidates < 100,000
+    int clock = clockConvert(clocks);
+    if(clock == -1) {
+        LOG(ERROR, "Error in converting clocks");
+        return -1;
+    }
+    set<uint32_t> clkgroups;
+    if(clockCandidates(clock, clocks.size(), clkgroups, fuzzy)) {
+        LOG(ERROR, "Error in generating clock candidates");
+        return -1;
+    }
+    size_t num_cand = countCandidates(clkgroups, clocks.size(), data);
+    if (num_cand > 100000)
+        return num_cand;
+    
+    getSeeds(clkgroups, clocks.size(), data, seeds);
+    filter(clocks,skipped,seeds);
+    return seeds.size();
 }
