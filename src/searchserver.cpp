@@ -3,18 +3,39 @@
 #include "search_utils.h"
 #include "log_utils.h"
 
+#include <format>
 seeddata smmain, usummain, smid, usumid;
+
+crow::response makeSeedResp(size_t add, std::set<uint32_t> &seeds, uint32_t skipped) {
+    crow::json::wvalue res;
+    std::vector<crow::json::wvalue> data;
+    for(uint32_t seed : seeds) {
+        crow::json::wvalue item;
+        item["seed"] = std::format("{:08x}",seed);
+        item["step"] = skipped;
+        data.push_back(item);
+    }
+    res["results"] = crow::json::wvalue::list(data);
+    return crow::response(res);
+}
 
 crow::response handleSeed(const crow::request& req, bool isUltra, bool isId) {
     auto needle = req.url_params.get("needle");
     if (needle == nullptr) {
         return crow::response(400);
     }
+    auto fuzzy = req.url_params.get("fuzzy");
+    if (fuzzy != nullptr) {
+        LOG(INFO, "is fuzzy");        
+    }
+    bool isFuzzy = fuzzy != nullptr;
+
     std::string needlestr(needle);
     LOG(INFO, "%s", needlestr.c_str());
     std::vector<uint32_t> clocks;
     parseLine(needlestr, clocks);
-    rotateClocks(clocks, isId);
+    size_t add = isId ? 15 : 0;
+    rotateClocks(clocks, add);
     uint32_t skipped = isUltra ? 477 : 417;
     if(isId) {
         skipped = isUltra ? 1132 : 1012;
@@ -26,12 +47,17 @@ crow::response handleSeed(const crow::request& req, bool isUltra, bool isId) {
         data = isUltra ? usummain : smmain;
     }
     std::set<uint32_t> seeds;
-    size_t count = search_seeds(clocks, skipped, data, seeds);
-    if(count > 100) {
-        return crow::response("Too many resulting seeds");
+    size_t count = search_seeds(clocks, skipped, data, seeds, isFuzzy);
+    if(count > 10) {
+        LOG(INFO, "%ld resulting seeds", count);
+        return crow::response(403, std::format("{:} resulting seeds", count));
+    } else {
+        for(uint32_t seed : seeds) {
+            LOG(INFO, "Candidate seed %08X", seed);
+        }
     }
-    
-    return crow::response(200); // figure out the response format later
+
+    return makeSeedResp(add, seeds, skipped);
 }
 
 void make_routes(crow::SimpleApp& app) {

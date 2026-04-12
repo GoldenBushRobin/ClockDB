@@ -30,10 +30,10 @@ int parseLine(string input, vector<uint32_t> &clocks) {
     return 0;
 }
 
-void rotateClocks(vector<uint32_t> &clocks, bool isId) {
-    if(isId) {
+void rotateClocks(vector<uint32_t> &clocks, size_t add) {
+    if(add) {
         for(auto it = clocks.begin(); it < clocks.end(); ++it) {
-            *it = (*it + 15) % 17;
+            *it = (*it + add) % 17;
         }
     }
 }
@@ -155,7 +155,7 @@ int filter(vector<uint32_t> &clocks, uint32_t skipped, set<uint32_t> &seeds, siz
     return 0;
 }
 
-size_t search_seeds(vector<uint32_t> &clocks, uint32_t skipped, seeddata data, set<uint32_t> &seeds) {
+size_t search_seeds(vector<uint32_t> &clocks, uint32_t skipped, seeddata data, set<uint32_t> &seeds, bool fuzzy) {
     if(!data.valid) return -1;
     
     // only populate seeds if total candidates < 100,000
@@ -165,7 +165,7 @@ size_t search_seeds(vector<uint32_t> &clocks, uint32_t skipped, seeddata data, s
         return -1;
     }
     set<uint32_t> clkgroups;
-    if(clockCandidates(clock, clocks.size(), clkgroups)) {
+    if(clockCandidates(clock, clocks.size(), clkgroups, fuzzy)) {
         LOG(ERROR, "Error in generating clock candidates");
         return -1;
     }
