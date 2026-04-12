@@ -2,6 +2,8 @@
 
 ClockDB is a db builder and fuzzy searcher for Pokemon's SMUSUM clock lookup.
 
+This has been made compatable with 3DSRngTool is [this fork](https://github.com/GoldenBushRobin/3DSRNGTool).
+
 ## Requirements
 
 The requirements are cmake and make, along with C11 and C++20 compilers with openmp support.
@@ -32,6 +34,12 @@ Can search the database for seeds after building the database for a specific off
 
 ```shell
 ./search --offset 477
+```
+
+After building your databases, you can run a local server for queries
+
+```shell
+./server
 ```
 
 ## Future Development
