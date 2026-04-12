@@ -6,7 +6,7 @@ This has been made compatable with 3DSRngTool is [this fork](https://github.com/
 
 ## Requirements
 
-The requirements are cmake and make, along with C11 and C++20 compilers with openmp support.
+The requirements are cmake and make, along with C11 and C++20 compilers with openmp support. For the server, [crowcpp](https://crowcpp.org/) is required.
 
 ## Getting Started
 
